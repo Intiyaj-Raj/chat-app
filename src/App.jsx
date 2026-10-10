@@ -6,7 +6,7 @@ import Chat from "./components/Chat";
 const App = () => {
   return (
     <Router>
-      <div className="min-h-screen bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-r from-gray-900 to-gray-800 flex items-center justify-center">
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
