@@ -2,8 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { LuSendHorizontal } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
 import { FaImage, FaRobot, FaRegUserCircle } from "react-icons/fa";
+import { GoogleGenAI } from "@google/genai";
 
+const ai = new GoogleGenAI({
+  apiKey: import.meta.env.VITE_GEMINI_API_KEY,
+});
 const Chat = () => {
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [input, setInput] = useState("");
   const fileInputRef = useRef(null);
@@ -31,41 +36,76 @@ const Chat = () => {
     navigate("/");
   }
 
-  function handleSend() {
-    if (!input.trim() && !selectedImage) {
-      return;
-    }
-    const newMessage = [];
-    if (input.trim()) {
-      newMessage.push({
-        from: "user",
-        text: input.trim(),
-      });
+  async function handleSend() {
+    const text = input.trim();
+
+    if ((!text && !selectedImage) || loading) return;
+
+    const imageToSend = selectedImage;
+
+    const newMessages = [];
+
+    if (text) {
+      newMessages.push({ from: "user", text });
     }
 
-    if (selectedImage) {
-      newMessage.push({
+    if (imageToSend) {
+      newMessages.push({
         from: "user",
         type: "image",
-        imageUrl: selectedImage,
+        imageUrl: imageToSend,
       });
     }
 
-    newMessage.push({
-      from: "bot",
-      text: selectedImage
-        ? "I received your photo."
-        : `Bot reply to : ${input.trim()}`,
-    });
-
-    setMessage((prev) => [...prev, ...newMessage]);
+    setMessage((prev) => [...prev, ...newMessages]);
     setInput("");
     setSelectedImage(null);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+
+    if (!text) {
+      setMessage((prev) => [
+        ...prev,
+        {
+          from: "bot",
+          text: "Please add a text message so I can reply.",
+        },
+      ]);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: text,
+      });
+
+      setMessage((prev) => [
+        ...prev,
+        {
+          from: "bot",
+          text: response.text || "No reply received.",
+        },
+      ]);
+    } catch (error) {
+      console.error("AI error:", error);
+
+      setMessage((prev) => [
+        ...prev,
+        {
+          from: "bot",
+          text: "Sorry, I couldn't generate a reply. Please try again.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   }
+
   function handleImageUpload(e) {
     const file = e.target.files?.[0];
 
@@ -167,8 +207,14 @@ const Chat = () => {
             }
           }}
         />
-        <button className="flex items-center gap-3 px-4 py-2 text-white cursor-pointer bg-indigo-500 hover:bg-indigo-700 rounded-lg">
-          <LuSendHorizontal onClick={handleSend} />
+        <button
+          disabled={loading}
+          onClick={handleSend}
+          className="flex items-center gap-3 px-4 py-2
+  text-white bg-indigo-500 rounded-lg
+  disabled:opacity-50"
+        >
+          <LuSendHorizontal />
         </button>
       </div>
     </div>
